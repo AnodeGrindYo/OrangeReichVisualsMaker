@@ -1,0 +1,285 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orange Reich Audio-Visual Mixer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Orange Reich Audio-Visual Mixer</h1>
+        </header>
+
+        <div class="main-content">
+            <div class="file-upload-section">
+                <h2>1. Upload Media</h2>
+                <div class="upload-cards">
+                    <div class="upload-card" id="audio-upload-card">
+                        <div class="upload-icon">🎵</div>
+                        <h3>Audio File</h3>
+                        <p>Upload a WAV file (44.1kHz, 16/24bit recommended)</p>
+                        <input type="file" id="audio-file" accept=".wav" hidden>
+                        <button class="upload-btn" id="audio-upload-btn">Select Audio</button>
+                        <div class="file-info" id="audio-file-info"></div>
+                    </div>
+                    
+                    <div class="upload-card" id="video-upload-card">
+                        <div class="upload-icon">🎬</div>
+                        <h3>Video File</h3>
+                        <p>Upload an MP4, WebM or MOV file (1080p or 4K recommended)</p>
+                        <input type="file" id="video-file" accept=".mp4,.webm,.mov" hidden>
+                        <button class="upload-btn" id="video-upload-btn">Select Video</button>
+                        <div class="file-info" id="video-file-info"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <h2>2. Preview & Customize</h2>
+                <div class="preview-container">
+                    <div class="video-container">
+                        <video id="preview-video" controls muted></video>
+                        <canvas id="effect-canvas"></canvas>
+                        <div class="overlay-container">
+                            <img id="logo-overlay" class="overlay hidden" src="https://raw.githubusercontent.com/AnodeGrindYo/OrangeReichRecordings/main/img/OrangeReichLogo.png">
+                            <div id="text-overlay" class="overlay hidden">
+                                <div id="label">Orange Reich Recordings</div>
+                                <div id="artist"></div>
+                                <div id="track"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="audio-visualizer">
+                        <canvas id="waveform"></canvas>
+                        <canvas id="spectrum"></canvas>
+                    </div>
+                    
+                    <div class="playback-controls">
+                        <button id="play-pause-btn">Play</button>
+                        <div class="time-display">
+                            <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="customize-panel">
+                    <div class="panel-section">
+                        <h3>Track Information</h3>
+                        <div class="input-group">
+                            <label for="artist-name">Artist Name</label>
+                            <input type="text" id="artist-name" placeholder="Enter artist name">
+                        </div>
+                        <div class="input-group">
+                            <label for="track-name">Track Name</label>
+                            <input type="text" id="track-name" placeholder="Enter track name">
+                        </div>
+                        <div class="input-group">
+                            <label for="text-position">Text Position</label>
+                            <select id="text-position">
+                                <option value="top-left">Top Left</option>
+                                <option value="top-right">Top Right</option>
+                                <option value="bottom-left">Bottom Left</option>
+                                <option value="bottom-right" selected>Bottom Right</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="text-color">Text Color</label>
+                            <input type="color" id="text-color" value="#ffffff">
+                        </div>
+                    </div>
+                    
+                    <div class="panel-section">
+                        <h3>Logo Settings</h3>
+                        <div class="input-group">
+                            <label for="logo-size">Logo Size</label>
+                            <input type="range" id="logo-size" min="10" max="50" value="25">
+                            <span id="logo-size-value">25%</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="logo-position">Logo Position</label>
+                            <select id="logo-position">
+                                <option value="top-left">Top Left</option>
+                                <option value="top-right" selected>Top Right</option>
+                                <option value="bottom-left">Bottom Left</option>
+                                <option value="bottom-right">Bottom Right</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="logo-opacity">Logo Opacity</label>
+                            <input type="range" id="logo-opacity" min="10" max="100" value="80">
+                            <span id="logo-opacity-value">80%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="panel-section">
+                        <h3>Audio Reactive Effects</h3>
+                        <div class="effect-tabs">
+                            <button class="tab-btn active" data-tab="video-effects">Video Effects</button>
+                            <button class="tab-btn" data-tab="logo-effects">Logo Effects</button>
+                            <button class="tab-btn" data-tab="text-effects">Text Effects</button>
+                        </div>
+                        
+                        <div class="tab-content active" id="video-effects">
+                            <div class="input-group">
+                                <label for="video-effect-type">Effect Type</label>
+                                <select id="video-effect-type">
+                                    <option value="none">None</option>
+                                    <option value="pulse">Pulse</option>
+                                    <option value="hue-rotate">Hue Rotation</option>
+                                    <option value="glitch">Glitch</option>
+                                    <option value="particles">Particles</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="video-reactivity">Reactivity</label>
+                                <input type="range" id="video-reactivity" min="0" max="100" value="50">
+                                <span id="video-reactivity-value">50%</span>
+                            </div>
+                            <div class="input-group">
+                                <label for="video-frequency-range">Frequency Range</label>
+                                <select id="video-frequency-range">
+                                    <option value="bass">Bass</option>
+                                    <option value="mid" selected>Mid</option>
+                                    <option value="treble">Treble</option>
+                                    <option value="full">Full Spectrum</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="logo-effects">
+                            <div class="input-group">
+                                <label for="logo-effect-type">Effect Type</label>
+                                <select id="logo-effect-type">
+                                    <option value="none">None</option>
+                                    <option value="pulse" selected>Pulse</option>
+                                    <option value="rotate">Rotate</option>
+                                    <option value="bounce">Bounce</option>
+                                    <option value="glitch">Glitch</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="logo-reactivity">Reactivity</label>
+                                <input type="range" id="logo-reactivity" min="0" max="100" value="70">
+                                <span id="logo-reactivity-value">70%</span>
+                            </div>
+                            <div class="input-group">
+                                <label for="logo-frequency-range">Frequency Range</label>
+                                <select id="logo-frequency-range">
+                                    <option value="bass" selected>Bass</option>
+                                    <option value="mid">Mid</option>
+                                    <option value="treble">Treble</option>
+                                    <option value="full">Full Spectrum</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-content" id="text-effects">
+                            <div class="input-group">
+                                <label for="text-effect-type">Effect Type</label>
+                                <select id="text-effect-type">
+                                    <option value="none">None</option>
+                                    <option value="fade">Fade</option>
+                                    <option value="glow" selected>Glow</option>
+                                    <option value="wave">Wave</option>
+                                    <option value="typewriter">Typewriter</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="text-reactivity">Reactivity</label>
+                                <input type="range" id="text-reactivity" min="0" max="100" value="60">
+                                <span id="text-reactivity-value">60%</span>
+                            </div>
+                            <div class="input-group">
+                                <label for="text-frequency-range">Frequency Range</label>
+                                <select id="text-frequency-range">
+                                    <option value="bass">Bass</option>
+                                    <option value="mid">Mid</option>
+                                    <option value="treble" selected>Treble</option>
+                                    <option value="full">Full Spectrum</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="export-section">
+                <h2>3. Export Video</h2>
+                <div class="export-options">
+                    <div class="input-group">
+                        <label for="export-quality">Export Quality</label>
+                        <select id="export-quality">
+                            <option value="720p">720p</option>
+                            <option value="1080p" selected>1080p</option>
+                            <option value="4k">4K</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="export-format">Export Format</label>
+                        <select id="export-format">
+                            <option value="mp4" selected>MP4 (H.264)</option>
+                            <option value="webm">WebM (VP9)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="audio-quality">Audio Quality</label>
+                        <select id="audio-quality">
+                            <option value="192">192 kbps</option>
+                            <option value="256" selected>256 kbps</option>
+                            <option value="320">320 kbps</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="export-btn" class="export-btn" disabled>Export Video</button>
+                
+                <div class="export-progress hidden">
+                    <div class="progress-info">
+                        <div class="progress-step" id="progress-step">Initializing...</div>
+                        <div class="progress-percentage">0%</div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="export-tips">
+                        <h4>While you wait...</h4>
+                        <div class="tip-carousel">
+                            <div class="tip active">Tip: Higher quality exports take longer to process</div>
+                            <div class="tip">Tip: MP4 format is recommended for YouTube uploads</div>
+                            <div class="tip">Tip: 4K exports will produce sharper results but larger files</div>
+                            <div class="tip">Tip: Audio reactions work best with music that has clear rhythmic patterns</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="export-result hidden">
+                    <h3>Export Complete!</h3>
+                    <div class="result-preview">
+                        <video id="result-video" controls></video>
+                    </div>
+                    <div class="result-actions">
+                        <button id="download-btn">Download Video</button>
+                        <button id="start-over-btn">Create Another</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Orange Reich Audio-Visual Mixer &copy; 2023 - Powered by Web Audio API and FFmpeg.wasm</p>
+        </footer>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            
+        }
+    }
+    </script>
+    <script src="config.js" type="module"></script>
+    <script src="app.js" type="module"></script>
+</body>
+</html>
