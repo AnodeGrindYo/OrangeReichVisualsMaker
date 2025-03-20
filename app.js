@@ -15,7 +15,7 @@ const appState = {
     recordedChunks: [],
     settings: { ...DEFAULT_SETTINGS },
     exportProgress: 0,
-    useFallbackMode: true  // Always use fallback mode
+    useFallbackMode: false
 };
 
 // DOM elements
@@ -144,8 +144,8 @@ async function initApp() {
     
     // Initialize FFmpeg
     try {
-        console.log('FFmpeg initialization skipped - using fallback mode');
-        // We're not trying to load FFmpeg anymore
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        appState.audioContext = new AudioContext();
     } catch (error) {
         console.error('Failed to load FFmpeg:', error);
         console.log('Using fallback export simulation mode');
@@ -169,51 +169,49 @@ async function initApp() {
 function handleAudioUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     if (file.type !== 'audio/wav') {
         alert('Please upload a WAV audio file.');
         return;
     }
-    
+
     appState.audioFile = file;
     elements.audioFileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
-    
-    // Create audio element and source
+
+    // Création de l'URL audio
     const audioUrl = URL.createObjectURL(file);
-    
-    // Set up audio analysis if audio context exists
-    if (appState.audioContext) {
-        // If previous source exists, disconnect it
-        if (appState.audioSource) {
-            appState.audioSource.disconnect();
-        }
-        
-        // Create new audio element
-        const audioElement = new Audio();
-        audioElement.src = audioUrl;
-        audioElement.loop = true;
-        
-        // Connect audio to analyser
-        appState.audioSource = appState.audioContext.createMediaElementSource(audioElement);
-        appState.audioAnalyser = appState.audioContext.createAnalyser();
-        appState.audioAnalyser.fftSize = APP_CONFIG.audio.fftSize;
-        appState.audioAnalyser.smoothingTimeConstant = APP_CONFIG.audio.smoothingTimeConstant;
-        
-        appState.audioSource.connect(appState.audioAnalyser);
-        appState.audioAnalyser.connect(appState.audioContext.destination);
-        
-        // Create data arrays for analysis
-        appState.frequencyData = new Uint8Array(appState.audioAnalyser.frequencyBinCount);
-        appState.timeData = new Uint8Array(appState.audioAnalyser.frequencyBinCount);
-        
-        // Set the audio source for the video element
-        elements.previewVideo.src = '';
-        elements.previewVideo.srcObject = null;
-        elements.previewVideo.src = audioUrl;
+
+    // Si une source audio existait, on la supprime proprement
+    if (appState.audioSource) {
+        appState.audioSource.disconnect();
+        appState.audioSource = null;
     }
+
+    // Création de l'élément audio et association à la vidéo
+    if (!appState.audioElement) {
+        appState.audioElement = new Audio();
+        appState.audioElement.controls = true;
+        elements.previewVideo.parentElement.appendChild(appState.audioElement);
+    }
+
+    appState.audioElement.src = audioUrl;
+    appState.audioElement.loop = true;
     
+    // Jouer l'audio quand la vidéo est jouée
+    elements.previewVideo.addEventListener('play', () => {
+        if (appState.audioElement.paused) {
+            appState.audioElement.play().catch(err => console.warn('Autoplay blocked:', err));
+        }
+    });
+
+    // Mettre pause à l'audio quand la vidéo est en pause
+    elements.previewVideo.addEventListener('pause', () => {
+        appState.audioElement.pause();
+    });
+
     checkReadyToExport();
 }
+
 
 // Handle video file upload
 function handleVideoUpload(event) {
@@ -640,28 +638,187 @@ function checkReadyToExport() {
 }
 
 // Start the export process
+// async function startExport() {
+//     if (!appState.audioFile || !appState.videoFile) {
+//         alert('Please upload both a video and an audio file before exporting.');
+//         return;
+//     }
+
+//     console.log('Starting export process...');
+
+//     elements.exportProgress.classList.remove('hidden');
+//     elements.exportBtn.disabled = true;
+//     updateExportProgress(0, 'Initializing export...');
+
+//     try {
+//         // Création d'un canvas pour appliquer les overlays (texte, logo, etc.)
+//         console.log('Creating canvas...');
+//         const video = document.createElement('video');
+//         video.src = URL.createObjectURL(appState.videoFile);
+//         video.crossOrigin = "anonymous";
+//         video.muted = true;
+//         await video.play();
+
+//         const canvas = document.createElement('canvas');
+//         canvas.width = video.videoWidth;
+//         canvas.height = video.videoHeight;
+//         const ctx = canvas.getContext('2d');
+
+//         // Création du MediaRecorder pour capturer la vidéo avec les overlays
+//         console.log('Setting up MediaRecorder...');
+//         const stream = canvas.captureStream(30);
+//         const recordedChunks = [];
+//         const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+//         mediaRecorder.ondataavailable = event => recordedChunks.push(event.data);
+//         mediaRecorder.start();
+
+//         // Fonction de rendu pour appliquer les overlays à chaque frame
+//         function renderFrame() {
+//             if (video.paused || video.ended) {
+//                 console.log('Stopping MediaRecorder...');
+//                 mediaRecorder.stop();
+//                 return;
+//             }
+
+//             ctx.clearRect(0, 0, canvas.width, canvas.height);
+//             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+//             // Ajoute le texte
+//             ctx.font = '30px Arial';
+//             ctx.fillStyle = elements.textColor.value || '#FFFFFF';
+//             ctx.fillText(elements.artistName.value, 50, 50);
+//             ctx.fillText(elements.trackName.value, 50, 100);
+
+//             // Ajoute le logo si visible
+//             if (!elements.logoOverlay.classList.contains('hidden')) {
+//                 const logo = new Image();
+//                 logo.src = elements.logoOverlay.src;
+//                 logo.onload = () => ctx.drawImage(logo, canvas.width - 150, 50, 100, 100);
+//             }
+
+//             requestAnimationFrame(renderFrame);
+//         }
+
+//         video.addEventListener('play', renderFrame);
+
+//         mediaRecorder.onstop = async () => {
+//             console.log('MediaRecorder stopped. Merging audio and video...');
+//             updateExportProgress(50, 'Processing video...');
+
+//             try {
+//                 const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+//                 const audioBlob = appState.audioFile;
+//                 const finalVideoBlob = appState.useFallbackMode
+//                     ? videoBlob
+//                     : await mergeAudioWithVideo(videoBlob, audioBlob);
+
+//                 console.log('Export finished successfully!');
+//                 updateExportProgress(100, 'Export complete!');
+
+//                 const finalVideoUrl = URL.createObjectURL(finalVideoBlob);
+//                 elements.resultVideo.src = finalVideoUrl;
+//                 elements.exportProgress.classList.add('hidden');
+//                 elements.exportResult.classList.remove('hidden');
+//             } catch (mergeError) {
+//                 console.error('Failed to merge audio with video:', mergeError);
+//                 alert('Failed to merge audio with video. Exporting video without sound.');
+//                 elements.exportProgress.classList.add('hidden');
+//                 elements.exportResult.classList.remove('hidden');
+//             }
+//         };
+
+//     } catch (error) {
+//         console.error('Export failed:', error);
+//         alert('Export failed: ' + error.message);
+//         elements.exportBtn.disabled = false;
+//         elements.exportProgress.classList.add('hidden');
+//     }
+// }
+
 async function startExport() {
-    // Pause playback
-    if (!elements.previewVideo.paused) {
-        togglePlayback();
+    if (!appState.audioFile || !appState.videoFile) {
+        alert('Please upload both a video and an audio file before exporting.');
+        return;
     }
-    
-    // Show export progress UI
+
+    console.log('Starting export process...');
+
     elements.exportProgress.classList.remove('hidden');
     elements.exportBtn.disabled = true;
-    
-    // Update progress UI
     updateExportProgress(0, 'Initializing export...');
-    
+
     try {
-        // Always use simulation for export
-        await simulateExport();
-        
-        // Show result (using original video as placeholder in fallback mode)
-        elements.resultVideo.src = URL.createObjectURL(appState.videoFile);
-        elements.exportProgress.classList.add('hidden');
-        elements.exportResult.classList.remove('hidden');
-        
+        console.log('Creating canvas...');
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(appState.videoFile);
+        video.crossOrigin = "anonymous";
+        video.muted = true;
+        await video.play();
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+
+        console.log('Setting up MediaRecorder...');
+        const stream = canvas.captureStream(30);
+        const recordedChunks = [];
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+        mediaRecorder.ondataavailable = event => recordedChunks.push(event.data);
+        mediaRecorder.start();
+
+        function renderFrame() {
+            if (video.paused || video.ended) {
+                console.log('Stopping MediaRecorder...');
+                mediaRecorder.stop();
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            ctx.font = '30px Arial';
+            ctx.fillStyle = elements.textColor.value || '#FFFFFF';
+            ctx.fillText(elements.artistName.value, 50, 50);
+            ctx.fillText(elements.trackName.value, 50, 100);
+
+            if (!elements.logoOverlay.classList.contains('hidden')) {
+                const logo = new Image();
+                logo.src = elements.logoOverlay.src;
+                logo.onload = () => ctx.drawImage(logo, canvas.width - 150, 50, 100, 100);
+            }
+
+            requestAnimationFrame(renderFrame);
+        }
+
+        video.addEventListener('play', renderFrame);
+
+        mediaRecorder.onstop = async () => {
+            console.log('MediaRecorder stopped. Merging audio and video...');
+            updateExportProgress(50, 'Processing video...');
+
+            try {
+                const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                const audioBlob = appState.audioFile;
+                const finalVideoBlob = await mergeAudioWithVideo(videoBlob, audioBlob);
+
+                console.log('Export finished successfully!');
+                updateExportProgress(100, 'Export complete!');
+
+                const finalVideoUrl = URL.createObjectURL(finalVideoBlob);
+                elements.resultVideo.src = finalVideoUrl;
+                elements.exportProgress.classList.add('hidden');
+                elements.exportResult.classList.remove('hidden');
+            } catch (mergeError) {
+                console.error('Failed to merge audio with video:', mergeError);
+                alert('Failed to merge audio with video. Exporting video without sound.');
+                elements.exportProgress.classList.add('hidden');
+                elements.exportResult.classList.remove('hidden');
+            }
+        };
+
     } catch (error) {
         console.error('Export failed:', error);
         alert('Export failed: ' + error.message);
@@ -669,6 +826,53 @@ async function startExport() {
         elements.exportProgress.classList.add('hidden');
     }
 }
+
+async function mergeAudioWithVideo(videoBlob, audioBlob) {
+    try {
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+
+        console.log("⏳ Chargement de FFmpeg...");
+        await ffmpeg.load();
+        console.log("✅ FFmpeg chargé avec succès.");
+
+        console.log("📝 Écriture des fichiers dans le FS virtuel de FFmpeg...");
+        ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoBlob));
+        ffmpeg.FS('writeFile', 'input.wav', await fetchFile(audioBlob));
+
+        console.log("📂 Vérification des fichiers...");
+        const videoExists = ffmpeg.FS('readdir', '.').includes('input.mp4');
+        const audioExists = ffmpeg.FS('readdir', '.').includes('input.wav');
+
+        if (!videoExists || !audioExists) {
+            throw new Error("❌ Les fichiers ne sont pas correctement chargés dans FFmpeg.");
+        }
+
+        console.log("🎬 Démarrage de la fusion audio/vidéo...");
+        await ffmpeg.run(
+            '-i', 'input.mp4',
+            '-i', 'input.wav',
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',  // Rend l'encodage BEAUCOUP plus rapide
+            '-c:a', 'aac',
+            '-b:a', '192k',
+            '-strict', 'experimental',
+            'output.mp4'
+        );
+
+        console.log("✅ Fusion terminée.");
+
+        console.log("📥 Récupération de la vidéo exportée...");
+        const outputData = ffmpeg.FS('readFile', 'output.mp4');
+        return new Blob([outputData.buffer], { type: 'video/mp4' });
+
+    } catch (error) {
+        console.error("❌ Erreur FFmpeg :", error);
+        alert("Échec de la fusion audio/vidéo. Export sans audio.");
+        return videoBlob;
+    }
+}
+
 
 // Simulate export process with progress updates
 async function simulateExport() {
@@ -692,6 +896,7 @@ async function simulateExport() {
 
 // Update export progress UI
 function updateExportProgress(percentage, message) {
+    console.log(`🔄 Mise à jour de la barre : ${percentage}% - ${message}`);
     elements.progressBar.style.width = `${percentage}%`;
     elements.progressStep.textContent = message;
     elements.progressPercentage.textContent = `${Math.round(percentage)}%`;
@@ -711,9 +916,20 @@ function startTipCarousel() {
 
 // Download the exported video
 function downloadExportedVideo() {
-    // In a real implementation, this would download the actual exported file
-    // For this demo, we'll just alert the user
-    alert('In a real implementation, this would download your exported video file.');
+    if (!elements.resultVideo.src) {
+        alert("No exported video available.");
+        return;
+    }
+
+    // Création d'un lien de téléchargement
+    const downloadLink = document.createElement("a");
+    downloadLink.href = elements.resultVideo.src;
+    downloadLink.download = "exported_video.mp4";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+
+    console.log("Exported video downloaded successfully.");
 }
 
 // Reset app to initial state
